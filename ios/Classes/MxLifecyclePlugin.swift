@@ -88,6 +88,47 @@ public class MxLifecyclePlugin: NSObject, FlutterPlugin {
     }
     
     private func invokeLifecycleCallback() {
-        channel.invokeMethod(methodName, arguments: ["state" : appLifecycleState?.rawValue])
+        if (isFlutterRunning()) {
+            channel.invokeMethod(methodName, arguments: ["state" : appLifecycleState?.rawValue])
+        } else {
+            print("flutter framework 已不再運行中")
+        }
+    }
+    
+    // 檢測 Flutter Framework 是否正常運行的方法
+    func isFlutterRunning() -> Bool {
+        if #available(iOS 13.0, *) {
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let window = windowScene.windows.first else {
+                return false
+            }
+            guard let flutterViewController = window.rootViewController as? FlutterViewController else {
+                return false
+            }
+
+            guard flutterViewController.engine != nil else {
+                return false
+            }
+        } else {
+            // Fallback on earlier versions
+            guard let appDelegate = UIApplication.shared.delegate else {
+                return false
+            }
+            
+            guard let window = appDelegate.window as? UIWindow else {
+                return false
+            }
+
+            guard let flutterViewController = window.rootViewController as? FlutterViewController else {
+                return false
+            }
+
+            guard flutterViewController.engine != nil else {
+                return false
+            }
+        }
+
+        
+        return true
     }
 }
