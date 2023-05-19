@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -34,6 +35,14 @@ class MethodChannelMxLifecycle extends MxLifecyclePlatform {
   @override
   Future<String?> getLifecycleState() async {
     return await methodChannel.invokeMethod<String?>('getLifecycleState');
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      methodChannel.invokeMethod<String?>('flutterDetached');
+    }
+    super.didChangeAppLifecycleState(state);
   }
 
   /// Handle incoming message from platforms (iOS and Android)

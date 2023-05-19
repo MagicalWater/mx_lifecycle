@@ -5,16 +5,21 @@ public class MxLifecyclePlugin: NSObject, FlutterPlugin {
     
     private var channel: FlutterMethodChannel
     
-    private let methodName: String = "getLifecycleState"
+    private let methodGetLifecycleState: String = "getLifecycleState"
+    private let methodFlutterDetached: String = "flutterDetached"
     
     // 當前的app狀態
     private var appLifecycleState: LifecycleState? = nil
+    
+    // flutter engine是否已停止
+    var isFlutterDetached: Bool = false
     
     init(channel: FlutterMethodChannel) {
         self.channel = channel
     }
     
     public static func register(with registrar: FlutterPluginRegistrar) {
+        
         let channel = FlutterMethodChannel(name: "mx_lifecycle", binaryMessenger: registrar.messenger())
         let instance = MxLifecyclePlugin(channel: channel)
         registrar.addMethodCallDelegate(instance, channel: channel)
@@ -25,8 +30,11 @@ public class MxLifecyclePlugin: NSObject, FlutterPlugin {
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         let method = call.method
-        if (method == methodName) {
+        if (method == methodGetLifecycleState) {
             result(appLifecycleState?.rawValue)
+        } else if (method == methodFlutterDetached) {
+            isFlutterDetached = true
+            result(nil)
         } else {
             result(nil)
         }
@@ -84,51 +92,33 @@ public class MxLifecyclePlugin: NSObject, FlutterPlugin {
     @objc func appWillTerminate() {
         print("app即將終止")
         appLifecycleState = LifecycleState.willTerminate
-        invokeLifecycleCallback()
+        
+        // 此狀態下app不可再傳送消息給flutter, 因此不傳送
+        //        invokeLifecycleCallback()
     }
     
     private func invokeLifecycleCallback() {
-        if (isFlutterRunning()) {
-            channel.invokeMethod(methodName, arguments: ["state" : appLifecycleState?.rawValue])
-        } else {
-            print("flutter framework 已不再運行中")
+        guard let appDelegate = UIApplication.shared.delegate as? FlutterAppDelegate else {
+            return
         }
-    }
-    
-    // 檢測 Flutter Framework 是否正常運行的方法
-    func isFlutterRunning() -> Bool {
-        if #available(iOS 13.0, *) {
-            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                  let window = windowScene.windows.first else {
-                return false
-            }
-            guard let flutterViewController = window.rootViewController as? FlutterViewController else {
-                return false
-            }
-
-            guard flutterViewController.engine != nil else {
-                return false
-            }
-        } else {
-            // Fallback on earlier versions
-            guard let appDelegate = UIApplication.shared.delegate else {
-                return false
-            }
-            
-            guard let window = appDelegate.window as? UIWindow else {
-                return false
-            }
-
-            guard let flutterViewController = window.rootViewController as? FlutterViewController else {
-                return false
-            }
-
-            guard flutterViewController.engine != nil else {
-                return false
-            }
-        }
-
         
-        return true
+        guard let window = appDelegate.window else {
+            return
+        }
+        
+        guard let flutterViewController = window.rootViewController as? FlutterViewController else {
+            return
+        }
+        
+        guard flutterViewController.engine != nil else {
+            return
+        }
+        
+        if (isFlutterDetached) {
+            print("[MxLifecyclePlugin] Flutter Engine已離線, 不可傳送消息")
+            return
+        }
+        
+        channel.invokeMethod(methodGetLifecycleState, arguments: ["state" : appLifecycleState?.rawValue])
     }
 }

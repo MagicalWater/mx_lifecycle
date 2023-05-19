@@ -1,12 +1,8 @@
 package org.water.mx_lifecycle
 
 import android.app.Activity
-import android.app.Application
-import android.os.Bundle
 import androidx.lifecycle.*
 import io.flutter.embedding.engine.plugins.FlutterPlugin
-import io.flutter.embedding.engine.plugins.activity.ActivityAware
-import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -22,16 +18,27 @@ class MxLifecyclePlugin : FlutterPlugin, MethodCallHandler {
 
     private var activity: Activity? = null
 
-    private val methodName: String = "getLifecycleState"
+    private val methodGetLifecycleState: String = "getLifecycleState"
+    private val methodFlutterDetached: String = "flutterDetached"
+
+    /// flutter engine是否已停止
+    var isFlutterDetached: Boolean = false
 
     // 當前的app狀態
     private var appLifecycleState: LifecycleState? = null
 
     override fun onMethodCall(call: MethodCall, result: Result) {
-        if (call.method == methodName) {
-            result.success(appLifecycleState?.rawValue)
-        } else {
-            result.notImplemented()
+        when (call.method) {
+            methodGetLifecycleState -> {
+                result.success(appLifecycleState?.rawValue)
+            }
+            methodFlutterDetached -> {
+                isFlutterDetached = true
+                result.success(null)
+            }
+            else -> {
+                result.notImplemented()
+            }
         }
     }
 
@@ -78,11 +85,13 @@ class MxLifecyclePlugin : FlutterPlugin, MethodCallHandler {
                     Lifecycle.Event.ON_DESTROY -> {
                         // 被銷毀
                         appLifecycleState = LifecycleState.Destroyed
-                        invokeLifecycleCallback()
+
+                        // 被銷毀就不再傳送訊息給flutter端, 因為flutter端會先停止運行
+//                        invokeLifecycleCallback()
                     }
                     Lifecycle.Event.ON_ANY -> {
                         // 任何事件都會匹配?
-                        printLog("生命週期的任意事件")
+//                        printLog("生命週期的任意事件")
                     }
                 }
             }
@@ -90,10 +99,16 @@ class MxLifecyclePlugin : FlutterPlugin, MethodCallHandler {
     }
 
     private fun invokeLifecycleCallback() {
-        channel.invokeMethod(methodName, mapOf("state" to appLifecycleState?.rawValue))
+        if (isFlutterDetached) {
+            return
+        }
+        channel.invokeMethod(methodGetLifecycleState, mapOf("state" to appLifecycleState?.rawValue))
     }
 
-    private fun printLog(content: String) {
-        channel.invokeMethod("printLog", mapOf("content" to content))
-    }
+//    private fun printLog(content: String) {
+//        if (isFlutterDetached) {
+//            return
+//        }
+//        channel.invokeMethod("printLog", mapOf("content" to content))
+//    }
 }

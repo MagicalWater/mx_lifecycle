@@ -1,10 +1,13 @@
+import 'package:flutter/cupertino.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'mx_lifecycle_method_channel.dart';
 
-abstract class MxLifecyclePlatform extends PlatformInterface {
+abstract class MxLifecyclePlatform extends PlatformInterface with WidgetsBindingObserver {
   /// Constructs a MxLifecyclePlatform.
-  MxLifecyclePlatform() : super(token: _token);
+  MxLifecyclePlatform() : super(token: _token) {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   static final Object _token = Object();
 
